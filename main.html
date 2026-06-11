@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watchdog – Ochrana detí online</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: #111114;
+  min-height: 100vh;
+  font-family: 'Inter', sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 40px 20px 120px;
+  position: relative;
+}
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background-image: linear-gradient(rgba(255,255,255,0.018) 1px,transparent 1px), linear-gradient(90deg,rgba(255,255,255,0.018) 1px,transparent 1px);
+  background-size: 40px 40px;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* HEADER */
+.header { text-align:center; margin-bottom:36px; z-index:1; position:relative; }
+.logo { display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:8px; }
+.logo-icon { width:46px; height:46px; background:#e74c3c; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:24px; }
+.header h1 { font-size:30px; font-weight:800; color:#fff; letter-spacing:-0.5px; }
+.header p { color:#666; font-size:13px; margin-top:4px; }
+
+/* LAYOUT: phone + sidebar */
+.main-layout {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+  z-index: 1;
+  position: relative;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* DANGER METER */
+.danger-card {
+  background: #1a1a1e;
+  border: 1px solid #2a2a2e;
+  border-radius: 18px;
+  padding: 20px;
+}
+.danger-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.danger-score-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.danger-score {
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1;
+  transition: color 0.4s;
+}
+.danger-score.low { color: #2ecc71; }
+.danger-score.med { color: #f39c12; }
+.danger-score.high { color: #e74c3c; }
+.danger-max { font-size: 18px; color: #444; font-weight: 600; }
+.danger-label {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  display: inline-block;
+  margin-bottom: 14px;
+  transition: all 0.4s;
+}
+.danger-label.low { background: rgba(46,204,113,0.15); color: #2ecc71; }
+.danger-label.med { background: rgba(243,156,18,0.15); color: #f39c12; }
+.danger-label.high { background: rgba(231,76,60,0.18); color: #e74c3c; }
+
+/* progress bar */
+.danger-bar-wrap {
+  height: 8px;
+  background: #2a2a2e;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.danger-bar-fill {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.6s cubic-bezier(0.4,0,0.2,1), background 0.4s;
+  width: 0%;
+}
+.danger-bar-fill.low { background: #2ecc71; }
+.danger-bar-fill.med { background: #f39c12; }
+.danger-bar-fill.high { background: #e74c3c; }
+
+/* threat rows */
+.threat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 0.5px solid #222;
+  font-size: 12px;
+  color: #777;
+  transition: color 0.3s;
+}
+.threat-row.triggered { color: #ccc; }
+.threat-icon { font-size: 15px; min-width: 20px; }
+.threat-pts {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: #555;
+  transition: color 0.3s;
+}
+.threat-row.triggered .threat-pts { color: #e74c3c; }
+.threat-badge {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 20px;
+  font-weight: 600;
+  margin-left: 4px;
+}
+.badge-warn { background: rgba(243,156,18,0.15); color: #f39c12; }
+.badge-danger { background: rgba(231,76,60,0.15); color: #e74c3c; }
+.badge-info { background: rgba(52,152,219,0.15); color: #3498db; }
+
+/* WATCHDOG TOGGLE CARD */
+.toggle-card {
+  background: #1a1a1e;
+  border: 1px solid #2a2a2e;
+  border-radius: 18px;
+  padding: 20px;
+}
+.toggle-title {
+  font-size: 11px; font-weight:700; color:#888;
+  text-transform:uppercase; letter-spacing:1px; margin-bottom:14px;
+}
+.wd-toggle-btn {
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+  background: #e74c3c;
+  color: #fff;
+}
+.wd-toggle-btn.active { background: #27ae60; }
+.wd-toggle-btn:hover { opacity: 0.9; transform: scale(1.02); }
+.wd-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: #555;
+}
+.wd-dot { width:8px; height:8px; border-radius:50%; background:#444; transition:background 0.3s; }
+.wd-dot.on { background:#27ae60; animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+
+/* PANIC BUTTON CARD */
+.panic-card {
+  background: #1a1a1e;
+  border: 1px solid #2a2a2e;
+  border-radius: 18px;
+  padding: 20px;
+}
+.panic-title {
+  font-size: 11px; font-weight:700; color:#888;
+  text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;
+}
+.panic-desc {
+  font-size: 12px;
+  color: #555;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+.panic-btn {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #c0392b, #e74c3c);
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.panic-btn:hover { transform: scale(1.03); box-shadow: 0 6px 24px rgba(231,76,60,0.5); }
+.panic-btn:active { transform: scale(0.97); }
+.panic-btn-icon { font-size: 22px; }
+
+/* PANIC OVERLAY – full screen */
+.panic-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: #e74c3c;
+  z-index: 99999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  animation: panicIn 0.3s ease;
+}
+.panic-overlay.show { display: flex; }
+@keyframes panicIn { from{opacity:0;transform:scale(1.05)} to{opacity:1;transform:scale(1)} }
+
+.panic-screen-icon { font-size: 80px; margin-bottom: 20px; animation: shake 0.5s infinite; }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+
+.panic-screen-title {
+  font-size: 36px; font-weight: 800; color: #fff;
+  margin-bottom: 10px; text-align: center;
+}
+.panic-screen-sub {
+  font-size: 16px; color: rgba(255,255,255,0.8);
+  margin-bottom: 32px; text-align: center; line-height: 1.6;
+  max-width: 360px;
+}
+.panic-sent-msg {
+  background: rgba(0,0,0,0.2);
+  border-radius: 16px;
+  padding: 16px 24px;
+  max-width: 380px;
+  width: 100%;
+  margin-bottom: 28px;
+}
+.panic-sent-label { font-size: 11px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+.panic-sent-text { font-size: 14px; color: #fff; line-height: 1.5; }
+
+.panic-recipients {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+.panic-recipient {
+  background: rgba(0,0,0,0.2);
+  border-radius: 12px;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+.panic-ok-btn {
+  background: rgba(0,0,0,0.3);
+  border: 2px solid rgba(255,255,255,0.4);
+  border-radius: 12px;
+  padding: 12px 32px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.panic-ok-btn:hover { background: rgba(0,0,0,0.4); }
+
+/* ===== iPHONE ===== */
+.iphone {
+  width: 393px; height: 852px;
+  background: #1c1c1e;
+  border-radius: 54px;
+  position: relative;
+  border: 2px solid #3a3a3c;
+  box-shadow: 0 0 0 1px #2c2c2e, 0 0 0 10px #1a1a1a, 0 0 0 12px #333, 0 30px 80px rgba(0,0,0,0.8);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.dynamic-island {
+  position:absolute; top:14px; left:50%; transform:translateX(-50%);
+  width:126px; height:36px; background:#000; border-radius:20px; z-index:100;
+  display:flex; align-items:center; justify-content:center; gap:10px;
+}
+.di-camera { width:12px; height:12px; background:#1a1a1a; border-radius:50%; border:2px solid #2a2a2a; }
+.di-dot { width:8px; height:8px; background:#1a1a1a; border-radius:50%; }
+.btn-side { position:absolute; background:#2c2c2e; border-radius:3px; }
+.btn-power { right:-3px; top:200px; width:4px; height:80px; }
+.btn-vol1 { left:-3px; top:160px; width:4px; height:36px; }
+.btn-vol2 { left:-3px; top:206px; width:4px; height:60px; }
+.btn-silent { left:-3px; top:120px; width:4px; height:28px; }
+
+.screen {
+  position:absolute; inset:0; background:#000; border-radius:52px;
+  overflow:hidden; display:flex; flex-direction:column;
+}
+.status-bar {
+  height:54px; padding:16px 28px 0;
+  display:flex; align-items:flex-end; justify-content:space-between;
+  flex-shrink:0; z-index:10;
+}
+.status-time { color:#fff; font-size:15px; font-weight:600; }
+.status-icons { display:flex; gap:6px; align-items:center; }
+.status-icons span { color:#fff; font-size:11px; font-weight:500; }
+
+.app-container { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.ig-topbar {
+  background:#000; padding:10px 16px 8px;
+  display:flex; align-items:center; gap:12px;
+  border-bottom:0.5px solid #2a2a2a; flex-shrink:0;
+}
+.ig-logo { font-size:20px; font-weight:700; color:#fff; flex:1; text-align:center; }
+.ig-logo span { font-weight:300; }
+.ig-icon { color:#fff; font-size:18px; }
+
+.inbox { flex:1; overflow-y:auto; background:#000; }
+.inbox::-webkit-scrollbar { display:none; }
+.inbox-header { padding:14px 16px 6px; }
+.inbox-title { color:#fff; font-size:17px; font-weight:600; }
+.inbox-sub { color:#888; font-size:12px; margin-top:2px; }
+
+.contact-item {
+  display:flex; align-items:center; gap:12px;
+  padding:10px 16px; cursor:pointer; transition:background 0.15s; position:relative;
+}
+.contact-item:hover { background:#111; }
+
+.avatar {
+  width:54px; height:54px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:700; font-size:18px; color:#fff;
+}
+.avatar-dad { background: linear-gradient(135deg,#2471a3,#1a5276); }
+.avatar-predator { background: linear-gradient(135deg,#7f8c8d,#4a4a4a); }
+
+.contact-name { color:#fff; font-size:14px; font-weight:500; }
+.contact-preview { color:#888; font-size:12px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:190px; }
+.contact-time { color:#888; font-size:11px; position:absolute; right:16px; top:12px; }
+
+.alert-badge {
+  position:absolute; right:16px; bottom:10px;
+  background:#e74c3c; color:#fff; font-size:9px; font-weight:700;
+  padding:2px 7px; border-radius:20px; display:none;
+}
+body.watchdog-on .alert-badge { display:block; }
+
+/* PANIC SLIDE-OUT TAB – on the right side of the phone */
+.panic-tab-wrap {
+  position: absolute;
+  top: 140px;
+  right: -2px;
+  z-index: 300;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+/* the visible tab handle sticking out on the right */
+.panic-tab-handle {
+  width: 28px;
+  background: #c0392b;
+  border-radius: 0 10px 10px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 4px;
+  cursor: pointer;
+  gap: 4px;
+  transition: background 0.15s;
+  box-shadow: 3px 0 12px rgba(192,57,43,0.5);
+  user-select: none;
+}
+.panic-tab-handle:hover { background: #e74c3c; }
+.panic-tab-handle .tab-icon { font-size: 14px; line-height:1; }
+.panic-tab-handle .tab-label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  font-size: 8px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.9);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* the panel that slides in from the right */
+.panic-tab-panel {
+  width: 0;
+  overflow: hidden;
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  background: #1a0808;
+  border-radius: 12px 0 0 12px;
+  border: 1px solid rgba(192,57,43,0.4);
+  border-right: none;
+  order: -1; /* panel is to the LEFT of the handle */
+}
+.panic-tab-panel.open { width: 180px; }
+
+.panic-tab-inner {
+  width: 180px;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.panic-tab-title {
+  font-size: 10px;
+  font-weight: 800;
+  color: #e74c3c;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.panic-tab-desc {
+  font-size: 10px;
+  color: #888;
+  line-height: 1.5;
+}
+.panic-tab-btn {
+  background: #c0392b;
+  border: none;
+  border-radius: 10px;
+  padding: 11px 8px;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  letter-spacing: 0.2px;
+  transition: all 0.15s;
+  text-align: center;
+  line-height: 1.3;
+}
+.panic-tab-btn:hover { background: #e74c3c; transform: scale(1.03); }
+.panic-tab-btn:active { transform: scale(0.97); }
+
+/* CHAT VIEW */
+.chat-view {
+  position:absolute; inset:0; background:#000; border-radius:52px;
+  display:flex; flex-direction:column;
+  transform:translateX(100%);
+  transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  z-index:50;
+}
+.chat-view.open { transform:translateX(0); }
+.chat-topbar {
+  padding:58px 16px 10px;
+  display:flex; align-items:center; gap:10px;
+  border-bottom:0.5px solid #2a2a2a; flex-shrink:0;
+}
+.chat-back { color:#0095f6; font-size:26px; cursor:pointer; padding:2px 6px; }
+.chat-avatar { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; color:#fff; }
+.chat-name { color:#fff; font-size:15px; font-weight:600; }
+.chat-status-line { color:#888; font-size:11px; }
+
+.messages { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:3px; }
+.messages::-webkit-scrollbar { display:none; }
+.msg-date { text-align:center; color:#555; font-size:10px; margin:6px 0 2px; }
+.msg-row { display:flex; align-items:flex-end; gap:5px; }
+.msg-row.sent { justify-content:flex-end; }
+.msg-row.recv { justify-content:flex-start; }
+.bubble {
+  max-width:76%; padding:8px 12px; border-radius:18px;
+  font-size:13px; line-height:1.4;
+}
+.sent .bubble { background:#0095f6; color:#fff; border-bottom-right-radius:4px; }
+.recv .bubble { background:#2a2a2a; color:#fff; border-bottom-left-radius:4px; }
+
+.bubble-img {
+  width:150px; height:150px; border-radius:14px; background:#222;
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; color:#777; text-align:center; padding:10px;
+  flex-direction: column; gap: 6px;
+}
+.bubble-img-icon { font-size:26px; }
+
+/* WATCHDOG BLURS */
+body.watchdog-on .blur-text { filter:blur(6px); pointer-events:none; user-select:none; }
+body.watchdog-on .blur-img { filter:blur(14px); }
+
+/* WATCHDOG WARNING ROWS */
+.wd-warn {
+  display:none;
+  border-radius:9px;
+  padding:7px 10px;
+  margin:3px 0;
+  font-size:11px;
+  font-weight:600;
+  align-items:center;
+  gap:7px;
+  flex-shrink: 0;
+}
+body.watchdog-on .wd-warn { display:flex; }
+
+/* level styling */
+.wd-warn.lvl-info { background:rgba(52,152,219,0.1); border:1px solid rgba(52,152,219,0.25); color:#5dade2; }
+.wd-warn.lvl-warn { background:rgba(243,156,18,0.1); border:1px solid rgba(243,156,18,0.25); color:#f5b041; }
+.wd-warn.lvl-danger { background:rgba(231,76,60,0.13); border:1px solid rgba(231,76,60,0.35); color:#ec7063; }
+.wd-warn.lvl-critical { background:rgba(231,76,60,0.22); border:1px solid rgba(231,76,60,0.6); color:#e74c3c; font-size:12px; }
+
+/* address row – only ! not blur */
+.wd-warn.lvl-warn-addr { background:rgba(243,156,18,0.08); border:1px solid rgba(243,156,18,0.2); color:#e67e22; }
+
+.wd-pts { margin-left:auto; font-size:10px; opacity:0.7; font-weight:700; }
+
+.chat-input-bar { padding:7px 12px 20px; display:flex; align-items:center; gap:7px; border-top:0.5px solid #2a2a2a; flex-shrink:0; }
+.chat-input { flex:1; background:#1c1c1e; border:1px solid #333; border-radius:20px; padding:8px 13px; color:#888; font-size:13px; font-family:inherit; outline:none; }
+.chat-send { width:30px; height:30px; background:#0095f6; border:none; border-radius:50%; cursor:pointer; color:#fff; font-size:14px; }
+
+.home-indicator {
+  position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+  width:130px; height:5px; background:rgba(255,255,255,0.3); border-radius:3px; z-index:200;
+}
+
+/* FOOTER */
+.footer { text-align:center; margin-top:32px; z-index:1; position:relative; }
+.footer p { color:#444; font-size:12px; }
+.footer strong { color:#e74c3c; }
+</style>
+</head>
+<body>
+
+<!-- PANIC OVERLAY -->
+<div class="panic-overlay" id="panic-overlay">
+  <div class="panic-screen-icon">🆘</div>
+  <div class="panic-screen-title">Správa odoslaná!</div>
+  <div class="panic-screen-sub">
+    Tvoji rodičia boli okamžite upozornení.<br>
+    Si v bezpečí. Nikam nechoď a počkaj na nich.
+  </div>
+  <div class="panic-sent-msg">
+    <div class="panic-sent-label">Odoslaná správa rodičom</div>
+    <div class="panic-sent-text">
+      🚨 WATCHDOG ALERT: Julka stlačila núdzové tlačidlo. Pravdepodobne sa cíti v ohrození pri online komunikácii. Skontrolujte jej telefón a kontaktujte ju ihneď.
+    </div>
+  </div>
+  <div class="panic-recipients">
+    <div class="panic-recipient">👨 Ocko Adam</div>
+    <div class="panic-recipient">👩 Mama Jana</div>
+  </div>
+  <button class="panic-ok-btn" onclick="closePanic()">Rozumiem, som v bezpečí</button>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">🛡️</div>
+    <h1>WATCHDOG</h1>
+  </div>
+  <p>Systém ochrany detí pred online predátormi · Školský projekt 2025</p>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="main-layout">
+
+  <!-- SIDEBAR LEFT -->
+  <div class="sidebar">
+
+    <!-- DANGER METER -->
+    <div class="danger-card">
+      <div class="danger-title">📊 Úroveň nebezpečnosti</div>
+      <div class="danger-score-row">
+        <div class="danger-score low" id="danger-score">0</div>
+        <div class="danger-max">/ 100</div>
+      </div>
+      <div class="danger-label low" id="danger-label">Bezpečné</div>
+      <div class="danger-bar-wrap">
+        <div class="danger-bar-fill low" id="danger-bar"></div>
+      </div>
+      <!-- threat list -->
+      <div class="threat-row" id="tr-age">
+        <span class="threat-icon">👤</span>
+        <span>Neznáma osoba – pýta sa na vek</span>
+        <span class="threat-badge badge-info">+10</span>
+        <span class="threat-pts" id="pts-age">0 b.</span>
+      </div>
+      <div class="threat-row" id="tr-addr">
+        <span class="threat-icon">📍</span>
+        <span>Pokus o zistenie polohy</span>
+        <span class="threat-badge badge-warn">+20</span>
+        <span class="threat-pts" id="pts-addr">0 b.</span>
+      </div>
+      <div class="threat-row" id="tr-parents">
+        <span class="threat-icon">🏠</span>
+        <span>Pýta sa na rodičov / kedy sú doma</span>
+        <span class="threat-badge badge-warn">+30</span>
+        <span class="threat-pts" id="pts-parents">0 b.</span>
+      </div>
+      <div class="threat-row" id="tr-photo">
+        <span class="threat-icon">📷</span>
+        <span>Požiadavka na fotografie</span>
+        <span class="threat-badge badge-danger">+40</span>
+        <span class="threat-pts" id="pts-photo">0 b.</span>
+      </div>
+    </div>
+
+    <!-- WATCHDOG TOGGLE -->
+    <div class="toggle-card">
+      <div class="toggle-title">👁 Watchdog systém</div>
+      <button class="wd-toggle-btn" id="wd-btn" onclick="toggleWatchdog()">
+        <span id="wd-eye">👁</span>
+        <span id="btn-label">ZAPNÚŤ WATCHDOG</span>
+      </button>
+      <div class="wd-status-row">
+        <div class="wd-dot" id="wd-dot"></div>
+        <span id="wd-status-text" style="color:#555; font-size:12px;">Sledovanie vypnuté</span>
+      </div>
+    </div>
+
+    <!-- PANIC BUTTON (sidebar) -->
+    <div class="panic-card">
+      <div class="panic-title">🆘 Núdzové tlačidlo</div>
+      <div class="panic-desc">
+        Ak sa dieťa cíti v nebezpečí alebo mu je niekto nepríjemný, jedným stlačením okamžite upozorní rodičov.
+      </div>
+      <button class="panic-btn" onclick="triggerPanic()">
+        <span class="panic-btn-icon">🆘</span>
+        NÚDZOVÉ VOLANIE RODIČOM
+      </button>
+    </div>
+
+  </div>
+
+  <!-- iPHONE -->
+  <div class="iphone">
+    <div class="btn-side btn-power"></div>
+    <div class="btn-side btn-vol1"></div>
+    <div class="btn-side btn-vol2"></div>
+    <div class="btn-side btn-silent"></div>
+
+    <!-- PANIC SLIDE-OUT TAB -->
+    <div class="panic-tab-wrap" id="panic-tab-wrap">
+      <div class="panic-tab-panel" id="panic-tab-panel">
+        <div class="panic-tab-inner">
+          <div class="panic-tab-title">🆘 Pomoc</div>
+          <div class="panic-tab-desc">Cítiš sa v nebezpečí alebo ti je niekto nepríjemný?</div>
+          <button class="panic-tab-btn" onclick="triggerPanic()">🆘 ZAVOLAJ RODIČOM</button>
+        </div>
+      </div>
+      <div class="panic-tab-handle" onclick="togglePanicTab()">
+        <span class="tab-icon">🆘</span>
+        <span class="tab-label">Pomoc</span>
+      </div>
+    </div>
+
+    <div class="screen">
+      <div class="dynamic-island">
+        <div class="di-dot"></div><div class="di-camera"></div><div class="di-dot"></div>
+      </div>
+      <div class="status-bar">
+        <span class="status-time">9:41</span>
+        <div class="status-icons"><span>●●●</span><span>WiFi</span><span>🔋</span></div>
+      </div>
+
+      <div class="app-container">
+        <div class="ig-topbar">
+          <span style="color:#fff;font-size:16px;">✦</span>
+          <div class="ig-logo">Instagram<span> DMs</span></div>
+          <span class="ig-icon">✏️</span>
+        </div>
+
+        <div class="inbox" id="inbox">
+          <div class="inbox-header">
+            <div class="inbox-title">Julka Marožko</div>
+            <div class="inbox-sub">Správy</div>
+          </div>
+
+          <!-- Adam otec -->
+          <div class="contact-item" onclick="openChat('dad')">
+            <div class="avatar avatar-dad">AM</div>
+            <div class="contact-info">
+              <div class="contact-name">Adam Marožko</div>
+              <div class="contact-preview">Dobre, čakám ťa 🏠</div>
+            </div>
+            <div class="contact-time">10:32</div>
+          </div>
+
+          <!-- Samko predator -->
+          <div class="contact-item" onclick="openChat('predator')">
+            <div class="avatar avatar-predator">SF</div>
+            <div class="contact-info">
+              <div class="contact-name">Samko Ferko</div>
+              <div class="contact-preview" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">Ahoj! Videl som ťa na fotkách u Zuzky 😊</div>
+            </div>
+            <div class="contact-time">11:15</div>
+            <div class="alert-badge">⚠️ ALERT</div>
+          </div>
+        </div>
+
+
+      </div>
+
+      <!-- CHAT: OTEC -->
+      <div class="chat-view" id="chat-dad">
+        <div class="chat-topbar">
+          <div class="chat-back" onclick="closeChat('dad')">‹</div>
+          <div class="chat-avatar avatar-dad">AM</div>
+          <div class="chat-info">
+            <div class="chat-name">Adam Marožko</div>
+            <div class="chat-status-line">Aktívny pred hodinou · otec</div>
+          </div>
+        </div>
+        <div class="messages">
+          <div class="msg-date">Utorok</div>
+          <div class="msg-row recv"><div class="bubble">Julka kedy máš dnes tanec? 🩰</div></div>
+          <div class="msg-row sent"><div class="bubble">O pol štvrtej ocko</div></div>
+          <div class="msg-row recv"><div class="bubble">Prídem pre teba o 17:30 pred školu tanca 🚗</div></div>
+          <div class="msg-row sent"><div class="bubble">Okej 😊 nezabudni priniesť môj ruksak z auta</div></div>
+
+          <div class="msg-date">Streda</div>
+          <div class="msg-row recv"><div class="bubble">Julka si už zo školy? Mama sa pýtala</div></div>
+          <div class="msg-row sent"><div class="bubble">Áno, idem domov s Evkou pešo 🎒</div></div>
+          <div class="msg-row recv"><div class="bubble">Super! Mama varí polievku 🍲</div></div>
+          <div class="msg-row sent"><div class="bubble">Jééé obľúbená!! ❤️</div></div>
+
+          <div class="msg-date">Dnes</div>
+          <div class="msg-row sent"><div class="bubble">Ocko môžeme cez víkend na zmrzlinu? Evka tiež pôjde</div></div>
+          <div class="msg-row recv"><div class="bubble">Samozrejme slniečko 🍦 v sobotu ráno</div></div>
+          <div class="msg-row recv"><div class="bubble">Dobre, čakám ťa 🏠</div></div>
+        </div>
+        <div class="chat-input-bar">
+          <input class="chat-input" placeholder="Správa..." readonly>
+          <button class="chat-send">↑</button>
+        </div>
+      </div>
+
+      <!-- CHAT: SAMKO -->
+      <div class="chat-view" id="chat-predator">
+        <div class="chat-topbar">
+          <div class="chat-back" onclick="closeChat('predator')">‹</div>
+          <div class="chat-avatar avatar-predator">SF</div>
+          <div class="chat-info">
+            <div class="chat-name">Samko Ferko</div>
+            <div class="chat-status-line">Aktívny pred 5 minútami</div>
+          </div>
+        </div>
+        <div class="messages" id="msgs-predator">
+          <div class="msg-date">Piatok</div>
+
+          <!-- nevinný začiatok -->
+          <div class="msg-row recv"><div class="bubble">Ahoj! Videl som ťa na fotkách u Zuzky 😊 si super!</div></div>
+          <div class="msg-row sent"><div class="bubble">Ahoj haha ďakujem 😊 ty si Zuzkin brat?</div></div>
+          <div class="msg-row recv"><div class="bubble">Nie, som kamarát. Ako sa voláš?</div></div>
+          <div class="msg-row sent"><div class="bubble">Julka 😊 a ty?</div></div>
+          <div class="msg-row recv"><div class="bubble">Samko 😊 koľko máš rokov Julka?</div></div>
+          <div class="msg-row sent"><div class="bubble">10 a ty?</div></div>
+
+          <!-- WD: vek – INFO +10 -->
+          <div class="wd-warn lvl-info" data-pts="10" data-key="age">
+            👤 <span>Neznáma osoba sa pýta na vek dieťaťa</span>
+            <span class="wd-pts">+10 b.</span>
+          </div>
+
+          <div class="msg-row recv">
+            <div class="bubble blur-text">
+              <!-- VYPLŇTE: Samko klamne o svojom veku, hovorí že má 12 -->
+              Napíš sem Samkovu odpoveď kde klamne o veku
+            </div>
+          </div>
+          <div class="msg-row sent">
+            <div class="bubble blur-text">
+              <!-- VYPLŇTE: Julkina nevinná odpoveď -->
+              Odpoveď Julky
+            </div>
+          </div>
+
+          <div class="msg-date">Sobota</div>
+
+          <div class="msg-row recv">
+            <div class="bubble blur-text">
+              <!-- VYPLŇTE: Samko sa pýta v akom meste alebo časti mesta býva -->
+              Správa o meste / polohe
+            </div>
+          </div>
+
+          <!-- WD: adresa – WARN +20, len !, nie blur -->
+          <div class="wd-warn lvl-warn-addr" data-pts="20" data-key="addr">
+            ⚠️ <span>Pokus o zistenie polohy / adresy dieťaťa</span>
+            <span class="wd-pts">+20 b.</span>
+          </div>
+
+          <div class="msg-row sent">
+            <div class="bubble">
+              <!-- toto NIE je blur – adresa je len upozornenie, nie blur -->
+              <!-- VYPLŇTE: Julka nevinne odpovie v akom meste býva -->
+              Odpoveď Julky (adresa – iba upozornenie, nie rozmazaná)
+            </div>
+          </div>
+
+          <div class="msg-row recv">
+            <div class="bubble blur-text">
+              <!-- VYPLŇTE: Samko sa pýta kedy sú rodičia doma -->
+              Správa o rodičoch – kedy sú doma
+            </div>
+          </div>
+
+          <!-- WD: rodičia – DANGER +30 -->
+          <div class="wd-warn lvl-danger" data-pts="30" data-key="parents">
+            🏠 <span>Pýta sa kedy sú rodičia doma – vysoké riziko</span>
+            <span class="wd-pts">+30 b.</span>
+          </div>
+
+          <div class="msg-row sent">
+            <div class="bubble blur-text">
+              <!-- VYPLŇTE: Julka odpovie o rodičoch -->
+              Odpoveď Julky
+            </div>
+          </div>
+
+          <div class="msg-date">Dnes</div>
+
+          <div class="msg-row recv">
+            <div class="bubble blur-text">
+              <!-- VYPLŇTE: Samko prosí o fotku -->
+              Správa – prosba o fotku
+            </div>
+          </div>
+
+          <!-- WD: fotky – DANGER +40 -->
+          <div class="wd-warn lvl-danger" data-pts="40" data-key="photo">
+            📷 <span>Nevhodná požiadavka – fotografie dieťaťa</span>
+            <span class="wd-pts">+40 b.</span>
+          </div>
+
+          <div class="msg-row recv">
+            <div class="bubble-img blur-img">
+              <span class="bubble-img-icon">🖼️</span>
+              Tu by bol obrázok (vlastná fotka Samka)
+            </div>
+          </div>
+          <div class="msg-row sent">
+            <div class="bubble-img blur-img">
+              <span class="bubble-img-icon">🖼️</span>
+              Tu by bol obrázok (fotka Julky)
+            </div>
+          </div>
+          <div class="msg-row recv">
+            <div class="bubble blur-text">
+              <!-- VYPLŇTE: ďalší stupňujúci sa pokus Samka -->
+              Ďalšia správa Samka
+            </div>
+          </div>
+
+          <!-- CRITICAL ALERT -->
+          <div class="wd-warn lvl-critical" data-key="final">
+            🚨 <span style="font-weight:800;">WATCHDOG ALERT: Rodič bol upozornený! Skóre prekročilo kritickú hranicu.</span>
+          </div>
+
+        </div>
+        <div class="chat-input-bar">
+          <input class="chat-input" placeholder="Správa..." readonly>
+          <button class="chat-send">↑</button>
+        </div>
+      </div>
+
+      <div class="home-indicator"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <p>Projekt <strong>Watchdog</strong> — Ochrana detí na internete · Školský projekt 2025</p>
+</div>
+
+<script>
+var watchdogOn = false;
+
+var threats = {
+  age:     { pts: 10, triggered: false, trId:'tr-age',     ptsId:'pts-age' },
+  addr:    { pts: 20, triggered: false, trId:'tr-addr',    ptsId:'pts-addr' },
+  parents: { pts: 30, triggered: false, trId:'tr-parents', ptsId:'pts-parents' },
+  photo:   { pts: 40, triggered: false, trId:'tr-photo',   ptsId:'pts-photo' }
+};
+
+function calcScore() {
+  var s = 0;
+  for (var k in threats) if (threats[k].triggered) s += threats[k].pts;
+  return s;
+}
+
+function updateDangerMeter(score) {
+  var el = document.getElementById('danger-score');
+  var bar = document.getElementById('danger-bar');
+  var label = document.getElementById('danger-label');
+  var pct = Math.min(score, 100);
+
+  el.textContent = score;
+  bar.style.width = pct + '%';
+
+  var cls = score < 30 ? 'low' : score < 60 ? 'med' : 'high';
+  var txt = score < 30 ? 'Bezpečné' : score < 60 ? 'Pozor – sledujte' : 'NEBEZPEČNÉ';
+
+  el.className = 'danger-score ' + cls;
+  bar.className = 'danger-bar-fill ' + cls;
+  label.className = 'danger-label ' + cls;
+  label.textContent = txt;
+}
+
+function toggleWatchdog() {
+  watchdogOn = !watchdogOn;
+  var btn = document.getElementById('wd-btn');
+  var label = document.getElementById('btn-label');
+  var dot = document.getElementById('wd-dot');
+  var statusTxt = document.getElementById('wd-status-text');
+  var eye = document.getElementById('wd-eye');
+
+  document.body.classList.toggle('watchdog-on', watchdogOn);
+  btn.classList.toggle('active', watchdogOn);
+
+  if (watchdogOn) {
+    label.textContent = 'VYPNÚŤ WATCHDOG';
+    dot.classList.add('on');
+    statusTxt.textContent = 'Sledovanie aktívne';
+    statusTxt.style.color = '#27ae60';
+    eye.textContent = '🙈';
+
+    // trigger threats sequentially for demo feel
+    var keys = ['age','addr','parents','photo'];
+    keys.forEach(function(k, i) {
+      setTimeout(function() {
+        if (!watchdogOn) return;
+        threats[k].triggered = true;
+        var tr = document.getElementById(threats[k].trId);
+        var pts = document.getElementById(threats[k].ptsId);
+        if (tr) tr.classList.add('triggered');
+        if (pts) pts.textContent = threats[k].pts + ' b.';
+        updateDangerMeter(calcScore());
+      }, i * 400);
+    });
+  } else {
+    label.textContent = 'ZAPNÚŤ WATCHDOG';
+    dot.classList.remove('on');
+    statusTxt.textContent = 'Sledovanie vypnuté';
+    statusTxt.style.color = '#555';
+    eye.textContent = '👁';
+
+    for (var k in threats) {
+      threats[k].triggered = false;
+      var tr = document.getElementById(threats[k].trId);
+      var pts = document.getElementById(threats[k].ptsId);
+      if (tr) tr.classList.remove('triggered');
+      if (pts) pts.textContent = '0 b.';
+    }
+    updateDangerMeter(0);
+  }
+}
+
+function openChat(id) {
+  document.getElementById('inbox').parentElement.style.display = 'none';
+  document.getElementById('app-wrap') && (document.getElementById('app-wrap').style.display='none');
+  document.querySelector('.app-container').style.display = 'none';
+  document.getElementById('chat-' + id).classList.add('open');
+  if (id === 'predator') {
+    var m = document.getElementById('msgs-predator');
+    setTimeout(function(){ m.scrollTop = m.scrollHeight; }, 120);
+  }
+}
+
+function closeChat(id) {
+  document.getElementById('chat-' + id).classList.remove('open');
+  document.querySelector('.app-container').style.display = 'flex';
+}
+
+function togglePanicTab() {
+  var panel = document.getElementById('panic-tab-panel');
+  panel.classList.toggle('open');
+}
+
+function triggerPanic() {
+  document.getElementById('panic-overlay').classList.add('show');
+}
+function closePanic() {
+  document.getElementById('panic-overlay').classList.remove('show');
+}
+</script>
+</body>
+</html>
