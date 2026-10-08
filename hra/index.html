@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#111114">
+<meta name="description" content="Zahraj sa za 10-ročnú Viki a zisti, ako rozpoznať online predátora. Interaktívne demo projektu Watchdog.">
+<title>Watchdog – Zahraj sa za Viki</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #111114;
+  --card: #1a1a1e;
+  --border: #2a2a2e;
+  --text: #f2f2f4;
+  --muted: #8a8a92;
+  --red: #e74c3c;
+  --orange: #f39c12;
+  --green: #27ae60;
+  --blue: #3797f0;
+}
+
+html, body { height: 100%; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  padding: 32px 20px 48px;
+  min-height: 100vh;
+}
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  background-image: linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+button { font-family: inherit; cursor: pointer; }
+
+/* HEADER */
+.header { text-align: center; margin-bottom: 28px; position: relative; z-index: 1; }
+.logo { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.logo-icon { width: 44px; height: 44px; background: var(--red); border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+.header h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+.header p { color: var(--muted); font-size: 13px; margin-top: 6px; }
+
+/* LAYOUT */
+.stage {
+  position: relative; z-index: 1;
+  display: grid;
+  gap: 28px;
+  justify-content: center;
+  align-items: start;
+  grid-template-columns: 280px 380px 340px;
+  grid-template-areas: "left phone right";
+}
+.col-left { grid-area: left; display: flex; flex-direction: column; gap: 16px; }
+.col-right { grid-area: right; display: flex; flex-direction: column; gap: 16px; }
+.phone { grid-area: phone; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px;
+}
+.card-title {
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+
+/* DANGER METER */
+.danger-row { display: flex; align-items: baseline; gap: 6px; }
+.danger-score { font-size: 44px; font-weight: 800; line-height: 1; transition: color .3s; }
+.danger-max { color: var(--muted); font-size: 15px; }
+.danger-label { font-size: 13px; font-weight: 700; margin: 6px 0 10px; }
+.danger-bar { height: 8px; background: #26262b; border-radius: 99px; overflow: hidden; }
+.danger-fill { height: 100%; width: 0; border-radius: 99px; transition: width .6s ease, background .3s; }
+.low { color: var(--green); } .med { color: var(--orange); } .high { color: var(--red); }
+.danger-fill.low { background: var(--green); } .danger-fill.med { background: var(--orange); } .danger-fill.high { background: var(--red); }
+.danger-note { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+
+.flags { list-style: none; margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.flags li {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: #55555c;
+  padding: 7px 9px; border-radius: 9px;
+  background: #151518; border: 1px solid transparent;
+  transition: all .3s;
+}
+.flags li .pts { margin-left: auto; font-weight: 700; font-size: 11px; }
+.flags li.on { color: var(--text); background: rgba(231,76,60,0.1); border-color: rgba(231,76,60,0.35); }
+.flags li.on .pts { color: var(--red); }
+
+/* PANIC */
+.panic-card { border-color: rgba(231,76,60,0.4); }
+.panic-desc { font-size: 12px; color: #b5b5bc; line-height: 1.55; margin-bottom: 12px; }
+.panic-btn {
+  width: 100%; border: none; border-radius: 14px;
+  background: var(--red); color: #fff;
+  font-weight: 800; font-size: 14px; letter-spacing: 0.3px;
+  padding: 15px 12px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  box-shadow: 0 6px 24px rgba(231,76,60,0.35);
+  transition: transform .15s;
+}
+.panic-btn:hover { transform: scale(1.02); }
+.panic-btn:active { transform: scale(0.98); }
+.pulse { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(231,76,60,0.7); }
+  50% { box-shadow: 0 0 0 12px rgba(231,76,60,0); }
+}
+
+/* EXPLANATION */
+.exp-empty { font-size: 13px; color: var(--muted); line-height: 1.6; }
+.verdict {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 800; padding: 5px 10px; border-radius: 99px;
+  margin-bottom: 12px;
+}
+.verdict.safe { background: rgba(39,174,96,0.15); color: #4cd685; }
+.verdict.risky { background: rgba(243,156,18,0.15); color: #f7b84b; }
+.verdict.bad { background: rgba(231,76,60,0.15); color: #ff7363; }
+.exp-quote {
+  font-size: 13px; color: #c9c9cf; font-style: italic;
+  border-left: 3px solid var(--border); padding-left: 10px; margin-bottom: 12px;
+}
+.exp-h { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin: 12px 0 5px; }
+.exp-text { font-size: 14px; line-height: 1.6; color: var(--text); }
+.exp-best { font-size: 13px; line-height: 1.55; color: #4cd685; }
+.flag-why { font-size: 13px; line-height: 1.6; color: #c9c9cf; }
+
+.progress { display: flex; gap: 5px; }
+.progress span { flex: 1; height: 5px; border-radius: 99px; background: #26262b; transition: background .3s; }
+.progress span.safe { background: var(--green); }
+.progress span.risky { background: var(--orange); }
+.progress span.bad { background: var(--red); }
+.progress span.now { background: #55555c; }
+.progress-label { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+/* PHONE */
+.phone {
+  width: 380px; height: 780px;
+  background: #000;
+  border: 10px solid #1f1f23;
+  border-radius: 54px;
+  box-shadow: 0 0 0 2px #2c2c31, 0 30px 80px rgba(0,0,0,0.6);
+  overflow: hidden;
+  position: relative;
+}
+.screen { height: 100%; display: flex; flex-direction: column; background: #000; position: relative; }
+.status-bar {
+  height: 46px; flex-shrink: 0;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 28px 0;
+  font-size: 14px; font-weight: 600;
+}
+.island { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 110px; height: 30px; background: #000; border-radius: 20px; border: 1px solid #1a1a1a; z-index: 5; }
+
+.chat-top {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px 10px;
+  border-bottom: 1px solid #1c1c1f;
+  flex-shrink: 0;
+}
+.chat-back { font-size: 26px; color: #fff; line-height: 1; padding-right: 2px; }
+.avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; flex-shrink: 0;
+  background: linear-gradient(135deg, #f58529, #dd2a7b, #8134af);
+  color: #fff;
+}
+.chat-info { flex: 1; min-width: 0; }
+.chat-name { font-size: 15px; font-weight: 700; }
+.chat-sub { font-size: 11px; color: var(--muted); }
+.sos-mini {
+  border: none; background: var(--red); color: #fff;
+  font-size: 12px; font-weight: 800;
+  padding: 8px 11px; border-radius: 99px;
+  display: flex; align-items: center; gap: 4px;
+}
+.mini-meter { display: none; padding: 6px 14px 8px; border-bottom: 1px solid #1c1c1f; flex-shrink: 0; }
+.mini-meter-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.mini-meter-row b { font-weight: 800; }
+
+.messages {
+  flex: 1; overflow-y: auto;
+  padding: 14px 12px 10px;
+  display: flex; flex-direction: column; gap: 6px;
+  scroll-behavior: smooth;
+}
+.messages::-webkit-scrollbar { width: 0; }
+.msg-date { text-align: center; font-size: 11px; color: #66666e; margin: 6px 0; }
+.row { display: flex; animation: pop .25s ease; }
+.row.recv { justify-content: flex-start; }
+.row.sent { justify-content: flex-end; }
+@keyframes pop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.bubble {
+  max-width: 76%;
+  padding: 9px 13px;
+  border-radius: 20px;
+  font-size: 14.5px; line-height: 1.4;
+  word-wrap: break-word;
+}
+.recv .bubble { background: #262629; border-bottom-left-radius: 6px; }
+.sent .bubble { background: linear-gradient(135deg, #6a5cff, #3797f0); border-bottom-right-radius: 6px; }
+.bubble-img {
+  width: 150px; height: 180px; border-radius: 18px;
+  background: linear-gradient(135deg, #3a3a40, #222226);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  font-size: 12px; color: var(--muted); text-align: center; padding: 10px;
+}
+.bubble-img .ico { font-size: 34px; filter: blur(1px); }
+.typing { display: inline-flex; gap: 4px; padding: 13px 15px; }
+.typing i { width: 7px; height: 7px; background: #77777e; border-radius: 50%; animation: blink 1s infinite; }
+.typing i:nth-child(2) { animation-delay: .15s; }
+.typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes blink { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+
+.wd-pill {
+  align-self: center;
+  max-width: 92%;
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11.5px; font-weight: 600; line-height: 1.35;
+  padding: 7px 11px; border-radius: 12px;
+  margin: 4px 0;
+  background: rgba(243,156,18,0.12); border: 1px solid rgba(243,156,18,0.4); color: #f7b84b;
+  animation: pop .3s ease;
+}
+.wd-pill.danger { background: rgba(231,76,60,0.12); border-color: rgba(231,76,60,0.45); color: #ff7363; }
+.wd-pill.critical { background: var(--red); border-color: var(--red); color: #fff; font-weight: 800; }
+.wd-pill.hint { background: rgba(55,151,240,0.12); border-color: rgba(55,151,240,0.4); color: #7dbbff; }
+.wd-pill .p { margin-left: auto; font-weight: 800; white-space: nowrap; }
+
+/* BOTTOM: options + feedback */
+.bottom {
+  flex-shrink: 0;
+  padding: 10px 12px 14px;
+  border-top: 1px solid #1c1c1f;
+  background: #0a0a0b;
+  min-height: 70px;
+}
+.bottom-label { font-size: 11px; color: var(--muted); font-weight: 600; margin: 0 4px 8px; }
+.options { display: flex; flex-direction: column; gap: 7px; }
+.opt {
+  text-align: left;
+  background: #1c1c20; color: var(--text);
+  border: 1px solid #2c2c31;
+  border-radius: 14px;
+  padding: 10px 13px;
+  font-size: 13.5px; line-height: 1.35;
+  transition: background .15s, border-color .15s;
+}
+.opt:hover { background: #24242a; border-color: var(--blue); }
+.waiting { font-size: 12px; color: var(--muted); text-align: center; padding: 14px 0; }
+
+.feedback { animation: pop .25s ease; }
+.feedback .verdict { margin-bottom: 8px; }
+.fb-exp { font-size: 13px; line-height: 1.55; color: #d4d4da; margin-bottom: 10px; display: none; }
+.fb-best { font-size: 12.5px; line-height: 1.5; color: #4cd685; margin-bottom: 10px; display: none; }
+.fb-side { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.next-btn {
+  width: 100%; border: none; border-radius: 12px;
+  background: var(--blue); color: #fff;
+  font-weight: 700; font-size: 14px; padding: 12px;
+}
+.home-ind { height: 5px; width: 130px; background: #fff; opacity: .85; border-radius: 99px; margin: 0 auto 8px; flex-shrink: 0; }
+
+/* OVERLAYS */
+.overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(8,8,10,0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: none;
+  align-items: flex-start; justify-content: center;
+  padding: 32px 16px;
+  overflow-y: auto;
+}
+.overlay.show { display: flex; }
+.modal {
+  width: 100%; max-width: 560px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 30px 28px;
+  margin: auto 0;
+  animation: pop .3s ease;
+}
+.modal h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.4px; line-height: 1.2; margin-bottom: 10px; }
+.modal .lead { font-size: 15px; color: #c9c9cf; line-height: 1.6; margin-bottom: 20px; }
+.kicker { font-size: 11px; font-weight: 700; color: var(--red); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 10px; }
+.steps { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.steps li { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; line-height: 1.5; color: #d4d4da; }
+.steps .n {
+  width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%;
+  background: #26262b; color: #fff; font-size: 13px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.sos-box {
+  background: rgba(231,76,60,0.1);
+  border: 1px solid rgba(231,76,60,0.4);
+  border-radius: 16px;
+  padding: 14px 16px;
+  font-size: 14px; line-height: 1.55; color: #f0d0cc;
+  margin-bottom: 22px;
+}
+.sos-box b { color: #fff; }
+.primary-btn {
+  width: 100%; border: none; border-radius: 14px;
+  background: var(--blue); color: #fff;
+  font-weight: 800; font-size: 16px; padding: 16px;
+  transition: transform .15s;
+}
+.primary-btn:hover { transform: scale(1.01); }
+.primary-btn.red { background: var(--red); }
+.fine { font-size: 11.5px; color: #66666e; text-align: center; margin-top: 14px; line-height: 1.5; }
+
+.alert-msg {
+  background: #111114; border: 1px solid var(--border); border-radius: 14px;
+  padding: 14px; margin: 16px 0;
+}
+.alert-msg .lbl { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+.alert-msg .txt { font-size: 13.5px; line-height: 1.55; color: #f0d0cc; }
+.recips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.recips span { font-size: 13px; background: rgba(39,174,96,0.14); color: #4cd685; padding: 6px 11px; border-radius: 99px; font-weight: 600; }
+.next-list { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+.next-list li { font-size: 13.5px; line-height: 1.5; color: #d4d4da; display: flex; gap: 10px; }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 18px 0; }
+.stat { background: #111114; border: 1px solid var(--border); border-radius: 14px; padding: 12px; text-align: center; }
+.stat .v { font-size: 24px; font-weight: 800; }
+.stat .k { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.3; }
+.recap { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+.recap li { display: flex; align-items: center; gap: 10px; font-size: 13px; padding: 8px 10px; background: #111114; border-radius: 10px; }
+.recap .r { margin-left: auto; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.r.safe { color: #4cd685; } .r.risky { color: #f7b84b; } .r.bad { color: #ff7363; } .r.none { color: #55555c; }
+.lessons { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; }
+.lessons li { font-size: 13.5px; line-height: 1.5; color: #d4d4da; padding-left: 22px; position: relative; }
+.lessons li::before { content: "✓"; position: absolute; left: 0; color: var(--green); font-weight: 800; }
+.section-h { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin: 18px 0 10px; }
+
+.toast {
+  position: fixed; top: 18px; left: 50%; transform: translate(-50%, -200px);
+  z-index: 60;
+  background: var(--red); color: #fff;
+  font-size: 13.5px; font-weight: 700;
+  padding: 12px 18px; border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(231,76,60,0.45);
+  transition: transform .4s ease;
+  max-width: calc(100% - 32px);
+  text-align: center;
+}
+.toast.show { transform: translate(-50%, 0); }
+
+.restart {
+  background: transparent; border: 1px solid var(--border); color: var(--muted);
+  font-size: 12px; font-weight: 600; padding: 8px 12px; border-radius: 10px;
+}
+.restart:hover { color: var(--text); border-color: #444; }
+
+.footer { text-align: center; color: #55555c; font-size: 12px; margin-top: 32px; position: relative; z-index: 1; }
+
+/* MEDIUM: phone + one side column */
+@media (max-width: 1179px) {
+  .stage {
+    grid-template-columns: 380px 340px;
+    grid-template-areas: "phone left" "phone right";
+  }
+}
+
+/* MOBILE: full-screen chat */
+@media (max-width: 899px) {
+  body { padding: 0; }
+  body::before, .header, .col-left, .col-right, .footer, .status-bar, .island, .home-ind { display: none; }
+  .stage { display: block; }
+  .phone {
+    width: 100%; height: 100vh; height: 100dvh;
+    border: none; border-radius: 0; box-shadow: none;
+  }
+  .chat-top { padding-top: max(10px, env(safe-area-inset-top)); }
+  .mini-meter { display: block; }
+  .bottom { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+  .fb-exp, .fb-best { display: block; }
+  .fb-side { display: none; }
+  .modal { padding: 24px 20px; border-radius: 20px; }
+  .modal h2 { font-size: 22px; }
+  .overlay { padding: 16px; }
+  .stats { gap: 6px; }
+  .stat .v { font-size: 20px; }
+}
+
+.top-nav { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+.top-nav a { text-decoration: none; font-size: 12.5px; font-weight: 700; padding: 8px 13px; border-radius: 11px; border: 1px solid var(--border); color: #bbb; background: var(--card); }
+.top-nav a:hover { color: #fff; border-color: #444; }
+.link-row { display: flex; gap: 10px; margin-top: 12px; }
+.link-row a { flex: 1; text-align: center; text-decoration: none; font-size: 13.5px; font-weight: 700; padding: 13px; border-radius: 14px; border: 1px solid var(--border); color: #d4d4da; }
+.link-row a:hover { border-color: #444; color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- INTRO -->
+<div class="overlay show" id="intro">
+  <div class="modal">
+    <div class="logo" style="justify-content:flex-start; margin-bottom:18px;">
+      <div class="logo-icon">🛡️</div>
+      <div style="font-size:20px; font-weight:800;">WATCHDOG</div>
+    </div>
+    <div class="kicker">Interaktívne demo</div>
+    <h2>Zahraj sa za 10-ročnú Viki</h2>
+    <p class="lead">Viki dostala na Instagrame správu od neznámeho chalana Samka. Vyzerá milo. Ty rozhoduješ, čo mu odpíše. Zistíš, či spoznáš, že niečo nie je v poriadku.</p>
+    <ul class="steps">
+      <li><span class="n">1</span><span>Prečítaj si Samkovu správu.</span></li>
+      <li><span class="n">2</span><span>Vyber jednu zo <b>4 odpovedí</b>, ktorú by Viki napísala.</span></li>
+      <li><span class="n">3</span><span><b>Watchdog</b> ti vysvetlí, prečo bola odpoveď bezpečná alebo nebezpečná, a ukáže, aké varovné signály v rozhovore našiel.</span></li>
+    </ul>
+    <div class="sos-box">
+      🆘 <b>Núdzové tlačidlo</b> môžeš stlačiť <b>kedykoľvek</b>. Keď ti niečo príde divné, jedným stlačením upozorníš rodičov. Privolať pomoc nie je nikdy chyba.
+    </div>
+    <button class="primary-btn" onclick="startGame()">Začať hru ▶</button>
+    <div class="link-row"><a href="../">← Späť</a><a href="../demo/">👁 Pozrieť demo</a></div>
+    <p class="fine">Hra trvá asi 3 minúty. Postavy aj konverzácia sú vymyslené.<br>Projekt Watchdog · ochrana detí pred online predátormi</p>
+  </div>
+</div>
+
+<!-- PANIC OVERLAY -->
+<div class="overlay" id="panic">
+  <div class="modal">
+    <div style="font-size:52px; margin-bottom:8px;">🆘</div>
+    <div class="kicker" style="color:#4cd685;">Pomoc je na ceste</div>
+    <h2>Rodičia boli upozornení</h2>
+    <p class="lead" id="panic-lead"></p>
+    <div class="alert-msg">
+      <div class="lbl">Správa, ktorú dostali rodičia</div>
+      <div class="txt" id="panic-text"></div>
+    </div>
+    <div class="recips"><span>👩 Mama ✓ doručené</span><span>👨 Ocko ✓ doručené</span></div>
+    <div class="section-h">Čo sa stane ďalej</div>
+    <ul class="next-list">
+      <li><span>👀</span><span>Rodičia uvidia celú konverzáciu aj varovné signály, ktoré Watchdog našiel.</span></li>
+      <li><span>🚫</span><span>Kontakt sa dá jedným ťuknutím zablokovať a nahlásiť Instagramu.</span></li>
+      <li><span>📞</span><span>Vo vážnych prípadoch: polícia <b>158</b> alebo Linka detskej istoty <b>116 111</b> (zadarmo, nonstop).</span></li>
+    </ul>
+    <button class="primary-btn" onclick="showResults()">Zobraziť môj výsledok</button>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div class="overlay" id="results">
+  <div class="modal">
+    <div style="font-size:48px; margin-bottom:8px;" id="res-icon"></div>
+    <div class="kicker" id="res-kicker"></div>
+    <h2 id="res-title"></h2>
+    <p class="lead" id="res-lead"></p>
+    <div class="stats">
+      <div class="stat"><div class="v" id="res-safe"></div><div class="k">bezpečných odpovedí</div></div>
+      <div class="stat"><div class="v" id="res-danger"></div><div class="k">úroveň nebezpečnosti</div></div>
+      <div class="stat"><div class="v" id="res-sos"></div><div class="k">núdzové tlačidlo</div></div>
+    </div>
+    <div class="section-h">Tvoje odpovede</div>
+    <ul class="recap" id="res-recap"></ul>
+    <div class="section-h">Čo si zapamätať</div>
+    <ul class="lessons">
+      <li>Cudzí človek online nemusí byť tým, za koho sa vydáva. Meno, vek aj fotka môžu byť falošné.</li>
+      <li>Nikdy neprezrádzaj adresu, školu, polohu ani kedy si doma sama.</li>
+      <li>„Nehovor to rodičom“ je najväčší varovný signál. Dobrý kamarát od teba tajomstvá nechce.</li>
+      <li>Fotku, ktorú pošleš, už nikdy nevezmeš späť.</li>
+      <li>Keď ti je niečo nepríjemné, povedz to dospelému. Hneď, nie až neskôr.</li>
+    </ul>
+    <button class="primary-btn" onclick="restartGame()">↺ Hrať znova</button>
+    <div class="link-row"><a href="../demo/">👁 Ako to Watchdog odhalí (demo)</a></div>
+    <p class="fine">Watchdog sleduje varovné signály v konverzáciách dieťaťa a pri nebezpečenstve upozorní rodičov. Dieťa má vždy po ruke núdzové tlačidlo.</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">🛡️</div>
+    <h1>WATCHDOG</h1>
+  </div>
+  <p>Zahraj sa za 10-ročnú Viki · Spoznáš online predátora?</p>
+  <nav class="top-nav"><a href="../">← Watchdog</a><a href="../demo/">👁 Ako funguje Watchdog (demo)</a></nav>
+</div>
+
+<div class="stage">
+
+  <!-- LEFT -->
+  <div class="col-left">
+    <div class="card">
+      <div class="card-title">📊 Úroveň nebezpečnosti</div>
+      <div class="danger-row">
+        <div class="danger-score low" id="d-score">0</div>
+        <div class="danger-max">/ 100</div>
+      </div>
+      <div class="danger-label low" id="d-label">Bezpečné</div>
+      <div class="danger-bar"><div class="danger-fill low" id="d-fill"></div></div>
+      <div class="danger-note">Pri 70 bodoch Watchdog automaticky upozorní rodičov.</div>
+      <ul class="flags" id="flags"></ul>
+    </div>
+
+    <div class="card panic-card">
+      <div class="card-title" style="color:#ff7363;">🆘 Núdzové tlačidlo</div>
+      <div class="panic-desc">Cítiš sa v nebezpečí alebo ti je niekto nepríjemný? Jedným stlačením okamžite upozorníš rodičov.</div>
+      <button class="panic-btn" id="panic-big" onclick="triggerPanic()">🆘 PRIVOLAŤ POMOC</button>
+    </div>
+  </div>
+
+  <!-- PHONE -->
+  <div class="phone">
+    <div class="screen">
+      <div class="island"></div>
+      <div class="status-bar"><span>9:41</span><span style="font-size:12px;">●●● 🔋</span></div>
+
+      <div class="chat-top">
+        <div class="chat-back">‹</div>
+        <div class="avatar">SF</div>
+        <div class="chat-info">
+          <div class="chat-name">Samko Ferko</div>
+          <div class="chat-sub">samko.ferko_12 · Instagram</div>
+        </div>
+        <button class="sos-mini" id="panic-mini" onclick="triggerPanic()">🆘 Pomoc</button>
+      </div>
+
+      <div class="mini-meter">
+        <div class="mini-meter-row"><span>Watchdog · nebezpečnosť</span><b id="m-score" class="low">0 / 100</b></div>
+        <div class="danger-bar"><div class="danger-fill low" id="m-fill"></div></div>
+      </div>
+
+      <div class="messages" id="messages"></div>
+
+      <div class="bottom" id="bottom"><div class="waiting">Stlač „Začať hru“</div></div>
+      <div class="home-ind"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="col-right">
+    <div class="card">
+      <div class="card-title">🧭 Priebeh</div>
+      <div class="progress" id="progress"></div>
+      <div class="progress-label" id="progress-label">Krok 0 / 7</div>
+    </div>
+    <div class="card" id="exp-card">
+      <div class="card-title">💡 Prečo je to dobrá alebo zlá odpoveď</div>
+      <div id="exp"><p class="exp-empty">Vyber odpoveď v telefóne. Watchdog ti tu vysvetlí, či bola bezpečná, a prečo.</p></div>
+    </div>
+    <div class="card" id="flag-card" style="display:none;">
+      <div class="card-title">🚩 Čo práve skúša útočník</div>
+      <div class="flag-why" id="flag-why"></div>
+    </div>
+    <button class="restart" onclick="restartGame()">↺ Začať odznova</button>
+  </div>
+
+</div>
+
+<div class="footer">Projekt <b>Watchdog</b> · Ochrana detí na internete</div>
+
+<script>
+// Scenár: 7 kôl, každé = Samkova správa + varovný signál + 4 odpovede.
+// rating: "safe" | "risky" | "bad". reply = Samkova reakcia (text alebo obrázok).
+var ROUNDS = [
+  {
+    msg: "Ahoj! Videl som ťa na fotkách u Zuzky 😊 si fakt super! Ako sa voláš?",
+    flag: { icon: "👤", short: "Neznámy človek + lichôtky", pill: "Neznámy kontakt začína lichôtkami", pts: 5, level: "warn" },
+    why: "Útočník sa najprv snaží pôsobiť milo a nenápadne. Lichôtka a spomenutie spoločnej kamarátky majú vytvoriť pocit, že je to „známy“.",
+    options: [
+      { rating: "safe", text: "Prepáč, nepoznám ťa. S cudzími si nepíšem.", exp: "Presne tak. Nevieš, kto naozaj je. Meno, profil aj fotka môžu byť falošné. Lichôtky sú najčastejší spôsob, ako si útočník získa dôveru.", reply: "Ale veď sa poznáme cez Zuzku 😊 som jej kamarát, neboj sa!" },
+      { rating: "risky", text: "Ďakujem 😊 Viki. A ty si kto?", exp: "Krstné meno nie je tragédia. Ale odpovedala si na lichôtku úplne cudziemu človeku. Útočníci si vyberajú deti, ktoré reagujú milo a rýchlo.", reply: "Samko 😊 som kamarát Zuzky, preto som ťa videl na fotkách." },
+      { rating: "bad", text: "Ahoj! Som Viktória Kováčová, chodím so Zuzkou do 4.B 😊", exp: "Celé meno, škola aj trieda. Z toho sa dá zistiť, kde ťa každý deň nájsť. Cudziemu človeku nikdy nepíš, kam chodíš do školy.", reply: "Super 😊 tak to sme skoro susedia, ja som Samko." },
+      { rating: "risky", text: "Ty poznáš Zuzku? Tak to je v pohode 😊 som Viki", exp: "Vyzerá to bezpečne, lebo spomenul kamarátku. Ale to, že pozná jej meno, nič nedokazuje. Stačí mu pozrieť jej verejný profil. Over si to radšej priamo u Zuzky.", reply: "Jasné 😊 so Zuzkou sa poznáme dlho." }
+    ]
+  },
+  {
+    msg: "Koľko máš rokov? Ja mám 12, chodím do 6. triedy 😊",
+    flag: { icon: "🎂", short: "Pýta sa na vek", pill: "Neznámy človek zisťuje vek dieťaťa", pts: 5, level: "warn" },
+    why: "Útočník zisťuje, aké mladé dieťa je. O sebe často klame, že je len o trochu starší, aby pôsobil ako rovesník.",
+    options: [
+      { rating: "safe", text: "Prečo to chceš vedieť? Nepoznám ťa.", exp: "Dobrá otázka späť. Vek je osobný údaj a cudzí človek nemá dôvod ho vedieť. Navyše nemáš ako overiť, že on má naozaj 12.", reply: "Len tak, aby som vedel s kým si píšem 😅 vyzeráš na 11?" },
+      { rating: "risky", text: "10 😊", exp: "Útočník teraz vie, že si mladšia, a skúsi ťa ľahšie ovplyvniť. A jeho „12 rokov“ si nemala ako overiť.", reply: "Wau, si na svoj vek fakt múdra 😊" },
+      { rating: "bad", text: "Mám 10, budúci týždeň mám narodeniny a chystám oslavu 🎉", exp: "Vek, dátum narodenín aj oslava. Útočník vie, kedy a kde budeš, a má dôvod „prísť s darčekom“. Takéto detaily patria len ľuďom, ktorých poznáš naživo.", reply: "Jéj, tak ti musím niečo kúpiť 🎁😊" },
+      { rating: "risky", text: "Fakt 12? Na fotke vyzeráš starší 🤔 ja mám 10", exp: "Výborný postreh! Fotka a vek nesedia, to je varovný signál. Ale aj tak si prezradila svoj vek a píšeš ďalej. Keď niečo nesedí, je čas prestať a povedať to dospelému.", reply: "Haha, to je stará fotka 😅 každý mi hovorí, že vyzerám starší." }
+    ]
+  },
+  {
+    msg: "Kde bývaš? Možno sme blízko a môžeme spolu chodiť zo školy 😊",
+    flag: { icon: "📍", short: "Zisťuje polohu", pill: "Pokus o zistenie polohy / adresy", pts: 10, level: "warn" },
+    why: "Útočník zbiera informácie po kúskoch. Mesto, ulica, škola: z viacerých odpovedí si poskladá, kde ťa nájde.",
+    options: [
+      { rating: "safe", text: "To nepíšem ľuďom, ktorých nepoznám naživo.", exp: "Výborne. Adresa ani mesto nepatria cudzím ľuďom. Aj „nevinná“ otázka o ceste zo školy je spôsob, ako zistiť, kde sa pohybuješ.", reply: "Ok, ok 😅 neboj, ja nie som žiadny úchyl haha" },
+      { rating: "risky", text: "V Trnave 😊", exp: "Mesto je široké, ale je to prvý kúsok skladačky. Útočníci sa pýtajú postupne: najprv mesto, potom časť, potom ulicu.", reply: "Nooo ja tiež! 😊 a v ktorej časti?" },
+      { rating: "bad", text: "Na Hlavnej 12, ten žltý dom pri parku 🏡", exp: "Presná adresa. Teraz presne vie, kde ťa nájde. Toto cudziemu človeku nikdy nepíš, aj keby pôsobil akokoľvek milo.", reply: "Ten žltý dom poznám 😊 chodím tadiaľ každý deň." },
+      { rating: "bad", text: "Pošlem ti polohu, je to rýchlejšie 📍", exp: "Zdieľanie polohy je ešte horšie ako adresa. Ukazuje, kde presne si práve teraz, a niektoré aplikácie ju zdieľajú aj ďalej naživo.", reply: "Super, ďakujem 😊 vidím, si kúsok odo mňa." }
+    ]
+  },
+  {
+    msg: "A kedy sú tvoji rodičia v robote? Mohli by sme si volať, keď budeš doma sama 😊",
+    flag: { icon: "🏠", short: "Kedy si doma sama", pill: "Zisťuje, kedy je dieťa bez dozoru. Vysoké riziko", pts: 10, level: "danger" },
+    why: "Útočník chce vedieť, kedy si bez dozoru dospelých. Toto je jeden z najvážnejších signálov, že niečo nie je v poriadku.",
+    options: [
+      { rating: "safe", text: "Prečo ťa zaujíma, kedy sú moji rodičia preč? To je divné.", exp: "Presne! Cudzí človek nemá žiadny dôvod vedieť, kedy si sama doma. Tvoj pocit „to je divné“ je správny. Teraz je dobrá chvíľa stlačiť 🆘.", reply: "Haha nie je to divné 😅 len aby ťa nevynadali, že si píšeš s chalanom." },
+      { rating: "risky", text: "Neviem, rôzne.", exp: "Nič si neprezradila, to je dobre. Ale takúto otázku treba brať vážne. Toto je moment, kedy to treba povedať rodičom.", reply: "Hmm ok 😊 tak mi napíš, keď budeš sama." },
+      { rating: "bad", text: "Mama príde až o 17:00, dovtedy som doma sama.", exp: "Útočník teraz vie, kedy si sama a nikto ťa nekontroluje. Presne túto informáciu potreboval.", reply: "Super, tak ti zavolám o tretej 😊" },
+      { rating: "bad", text: "Môžeš si zavolať aj s mamou 😊 ona je doma do dvoch", exp: "Znie to bezpečne, lebo spomínaš mamu. Ale v skutočnosti si prezradila, odkedy si doma sama. Útočník si to zapamätá.", reply: "Haha nie, s mamou nie 😅 tak po druhej, ok?" }
+    ]
+  },
+  {
+    msg: "Hej, ale nehovor o mne rodičom ani Zuzke, ok? Dospelí to aj tak nechápu 🤫 bude to naše tajomstvo",
+    flag: { icon: "🤫", short: "Žiada tajomstvo", pill: "Žiada, aby to dieťa tajilo pred rodičmi. Vysoké riziko", pts: 10, level: "danger" },
+    why: "Tajomstvo je najsilnejšia zbraň útočníka. Keď o ňom nikto nevie, nikto ťa nemôže ochrániť. Kto to s tebou myslí dobre, nikdy nechce tajomstvá pred rodičmi.",
+    options: [
+      { rating: "safe", text: "Prečo by som to mala tajiť? Ja to mame poviem.", exp: "Presne tak. „Nikomu to nehovor“ je najdôležitejší varovný signál zo všetkých. Povedať to mame je to najlepšie, čo môžeš urobiť. Ešte lepšie: stlač 🆘.", reply: "Nie nie, nehovor! 😟 mama by ti zobrala mobil a už by sme si nemohli písať..." },
+      { rating: "risky", text: "Dobre, ale prečo?", exp: "Pýtať sa „prečo“ je dobrý inštinkt. Ale súhlasila si s tajomstvom. Útočník ti teraz vysvetlí, prečo „dospelí nechápu“, a bude ťa izolovať od rodiny.", reply: "Lebo dospelí hneď robia drámu 🙄 my dvaja si rozumieme." },
+      { rating: "bad", text: "Ok, bude to naše tajomstvo 🤐", exp: "Takto útočník oddelí dieťa od ľudí, ktorí by ho ochránili. Od tejto chvíle o ňom nikto nevie.", reply: "Si najlepšia 😊❤️" },
+      { rating: "bad", text: "Neboj, aj tak im nič nehovorím 😅", exp: "Môže to znieť normálne. Ale presne toto chcel počuť: že ťa nikto nekontroluje a s nikým sa nerozprávaš.", reply: "Perfektné 😊 ty si iná ako ostatní." }
+    ]
+  },
+  {
+    msg: "Pošli mi nejakú svoju fotku, len pre mňa 😊 ja ti potom pošlem svoju",
+    flag: { icon: "📷", short: "Žiada fotky", pill: "Nevhodná požiadavka: fotografie dieťaťa", pts: 15, level: "danger" },
+    why: "Fotku, ktorú raz pošleš, už nevezmeš späť. Útočník ju môže uložiť, preposlať, alebo ňou vydierať: „pošli ďalšiu, inak ju ukážem všetkým“.",
+    options: [
+      { rating: "safe", text: "Nie. Fotky cudzím ľuďom neposielam.", exp: "Výborne. Žiadna fotka cudziemu človeku, ani „nevinná“. Ak ťa niekto tlačí, aby si poslala fotku, povedz to dospelému.", reply: "Prečo si taká? 😕 myslel som, že sme kamoši..." },
+      { rating: "risky", text: "Pošlem ti len fotku môjho psa 🐶", exp: "Fotka psa nie je nebezpečná sama osebe. Ale v pozadí môže byť váš dom, ulica alebo škola. A hlavne: rozhovor pokračuje a on bude chcieť viac.", reply: "Haha zlatý 😊 a teraz ty, prosím 🥺" },
+      { rating: "bad", text: "Ok, tu je 📸", exp: "Fotka je preč a nevezmeš ju späť. Útočník ju môže uložiť, poslať ďalej alebo ňou neskôr vydierať. Takto to často začína.", reply: "Wau 😍 pošli ešte jednu, ale nikomu to nehovor 😉" },
+      { rating: "risky", text: "Najprv ty pošli svoju 😏", exp: "Vyzerá to šikovne, ale nič to neoverí. Jeho fotka môže byť ukradnutá z internetu. A keď ti ju pošle, budeš sa cítiť povinná poslať svoju.", reply: { img: "Fotka „Samka“ (pravdepodobne ukradnutá z internetu)" } }
+    ]
+  },
+  {
+    msg: "Poďme sa v sobotu stretnúť v parku 😊 ale príď sama, dobre?",
+    flag: { icon: "🚨", short: "Chce sa stretnúť osamote", pill: "Žiada osobné stretnutie bez dospelých. Kritické riziko", pts: 15, level: "danger" },
+    why: "Toto je cieľ celého rozhovoru. Všetko predtým (lichôtky, adresa, tajomstvo) ho pripravovalo na tento moment. Stretnutie s cudzím človekom z internetu je najväčšie nebezpečenstvo.",
+    options: [
+      { rating: "safe", text: "Nie. Toto poviem rodičom.", exp: "Presne tak! Neísť a povedať to rodičom je jediná správna odpoveď. Teraz stlač 🆘, aby rodičia videli celú konverzáciu.", reply: null },
+      { rating: "risky", text: "Neviem, musím rozmýšľať...", exp: "Neodmietla si to. Útočník bude tlačiť ďalej, kým nepovieš áno. Tu treba povedať jasné NIE a hneď to povedať dospelému.", reply: "Prosím 🥺 bude to super, sľubujem 😊" },
+      { rating: "bad", text: "Dobre 😊 o koľkej?", exp: "Toto je najnebezpečnejšia situácia z celého rozhovoru. Ideš sama za človekom, o ktorom nič nevieš a o ktorom nikto dospelý nevie.", reply: "O tretej pri fontáne 😊 a nikomu nič, jasné?" },
+      { rating: "bad", text: "Môžem prísť s kamoškou Evkou?", exp: "Vyzerá to bezpečnejšie, ale stále ideš za cudzím človekom a nikto dospelý o tom nevie. Dve deti nie sú ochrana.", reply: "Radšej sama 😊 Evka by to pokazila." }
+    ]
+  }
+];
+
+var ALERT_AT = 70;
+var ANSWER_PTS = { safe: 0, risky: 5, bad: 12 };
+var VERDICT = {
+  safe: "✅ Bezpečná odpoveď",
+  risky: "⚠️ Riskantná odpoveď",
+  bad: "❌ Nebezpečná odpoveď"
+};
+var RECAP = { safe: "✅ bezpečne", risky: "⚠️ riskantne", bad: "❌ nebezpečne", none: "útočník to nestihol" };
+
+var state;
+var runId = 0;
+
+var $ = function (id) { return document.getElementById(id); };
+
+var resetState = function () {
+  state = { round: -1, danger: 0, answers: [], alerted: false, alertStep: null, panic: false, panicStep: null, started: false, ended: false };
+};
+
+var later = function (fn, ms) {
+  var id = runId;
+  setTimeout(function () { if (id === runId) fn(); }, ms);
+};
+
+var scrollDown = function () {
+  var m = $("messages");
+  m.scrollTop = m.scrollHeight;
+};
+
+var addRow = function (side, node) {
+  var row = document.createElement("div");
+  row.className = "row " + side;
+  row.appendChild(node);
+  $("messages").appendChild(row);
+  scrollDown();
+  return row;
+};
+
+var addBubble = function (side, text) {
+  var b = document.createElement("div");
+  b.className = "bubble";
+  b.textContent = text;
+  return addRow(side, b);
+};
+
+var addImage = function (side, caption) {
+  var b = document.createElement("div");
+  b.className = "bubble-img";
+  b.innerHTML = "<span class=\"ico\">🖼️</span>";
+  b.appendChild(document.createTextNode(caption));
+  return addRow(side, b);
+};
+
+var addPill = function (cls, html) {
+  var p = document.createElement("div");
+  p.className = "wd-pill " + cls;
+  p.innerHTML = html;
+  $("messages").appendChild(p);
+  scrollDown();
+};
+
+var addDate = function (text) {
+  var d = document.createElement("div");
+  d.className = "msg-date";
+  d.textContent = text;
+  $("messages").appendChild(d);
+};
+
+// Samko "píše..." a potom pošle správu
+var samkoSays = function (content, done) {
+  var t = document.createElement("div");
+  t.className = "bubble typing";
+  t.innerHTML = "<i></i><i></i><i></i>";
+  var row = addRow("recv", t);
+  later(function () {
+    row.remove();
+    if (typeof content === "string") addBubble("recv", content);
+    else addImage("recv", content.img);
+    if (done) done();
+  }, 1100);
+};
+
+var dangerClass = function (s) { return s < 30 ? "low" : s < ALERT_AT ? "med" : "high"; };
+var dangerText = function (s) { return s < 30 ? "Bezpečné" : s < ALERT_AT ? "Pozor, sledujte" : "NEBEZPEČNÉ"; };
+
+var renderDanger = function () {
+  var s = state.danger;
+  var cls = dangerClass(s);
+  $("d-score").textContent = s;
+  $("d-score").className = "danger-score " + cls;
+  $("d-label").textContent = dangerText(s);
+  $("d-label").className = "danger-label " + cls;
+  $("d-fill").style.width = s + "%";
+  $("d-fill").className = "danger-fill " + cls;
+  $("m-score").textContent = s + " / 100";
+  $("m-score").className = cls;
+  $("m-fill").style.width = s + "%";
+  $("m-fill").className = "danger-fill " + cls;
+};
+
+var addDanger = function (n) {
+  state.danger = Math.min(100, state.danger + n);
+  renderDanger();
+  if (state.danger >= 50) {
+    $("panic-big").classList.add("pulse");
+    $("panic-mini").classList.add("pulse");
+  }
+  if (!state.alerted && state.danger >= ALERT_AT) {
+    state.alerted = true;
+    state.alertStep = state.round + 1;
+    later(function () {
+      addPill("critical", "🚨 <span>WATCHDOG: rodičia boli automaticky upozornení. Konverzácia je nebezpečná.</span>");
+      showToast("🛡️ Watchdog upozornil rodičov: skóre prekročilo " + ALERT_AT + " bodov");
+    }, 500);
+  }
+};
+
+var renderFlags = function () {
+  $("flags").innerHTML = ROUNDS.map(function (r, i) {
+    return "<li id=\"flag-" + i + "\"><span>" + r.flag.icon + "</span><span>" + r.flag.short + "</span><span class=\"pts\">+" + r.flag.pts + "</span></li>";
+  }).join("");
+};
+
+var renderProgress = function () {
+  $("progress").innerHTML = ROUNDS.map(function (r, i) {
+    var a = state.answers[i];
+    var cls = a ? a.rating : (i === state.round ? "now" : "");
+    return "<span class=\"" + cls + "\"></span>";
+  }).join("");
+  var step = Math.max(0, Math.min(state.round + 1, ROUNDS.length));
+  $("progress-label").textContent = "Krok " + step + " / " + ROUNDS.length;
+};
+
+var shuffle = function (arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+};
+
+var bestOption = function (r) {
+  return r.options.filter(function (o) { return o.rating === "safe"; })[0];
+};
+
+var setBottom = function (html) { $("bottom").innerHTML = html; };
+
+var playRound = function (i) {
+  state.round = i;
+  renderProgress();
+  setBottom("<div class=\"waiting\">Samko píše...</div>");
+  var r = ROUNDS[i];
+  samkoSays(r.msg, function () {
+    later(function () {
+      addPill(r.flag.level === "danger" ? "danger" : "", r.flag.icon + " <span>" + r.flag.pill + "</span><span class=\"p\">+" + r.flag.pts + " b.</span>");
+      $("flag-" + i).classList.add("on");
+      $("flag-card").style.display = "";
+      $("flag-why").textContent = r.why;
+      addDanger(r.flag.pts);
+      if (i === 3) addPill("hint", "💡 <span>Je ti niečo divné? Kedykoľvek môžeš stlačiť 🆘 Pomoc.</span>");
+      renderOptions(i);
+    }, 450);
+  });
+};
+
+var renderOptions = function (i) {
+  var opts = shuffle(ROUNDS[i].options);
+  state.shown = opts;
+  setBottom("<div class=\"bottom-label\">Čo odpíše Viki?</div><div class=\"options\">" +
+    opts.map(function (o, k) {
+      return "<button class=\"opt\" onclick=\"choose(" + k + ")\"></button>";
+    }).join("") + "</div>");
+  var btns = $("bottom").querySelectorAll(".opt");
+  opts.forEach(function (o, k) { btns[k].textContent = o.text; });
+};
+
+var choose = function (k) {
+  if (state.ended) return;
+  var r = ROUNDS[state.round];
+  var o = state.shown[k];
+  state.answers[state.round] = o;
+  addBubble("sent", o.text);
+  addDanger(ANSWER_PTS[o.rating]);
+  renderProgress();
+  renderExplanation(r, o);
+
+  var best = bestOption(r);
+  var bestHtml = o.rating !== "safe" ? "<div class=\"fb-best\">Najlepšia odpoveď: „" + best.text + "“</div>" : "";
+  var isLast = state.round === ROUNDS.length - 1;
+  setBottom("<div class=\"feedback\"><span class=\"verdict " + o.rating + "\">" + VERDICT[o.rating] + "</span>" +
+    "<div class=\"fb-exp\"></div>" + bestHtml +
+    "<div class=\"fb-side\">Vysvetlenie nájdeš vpravo 👉</div>" +
+    "<button class=\"next-btn\" onclick=\"nextStep()\">" + (isLast ? "Dokončiť" : "Ďalej ▶") + "</button></div>");
+  $("bottom").querySelector(".fb-exp").textContent = o.exp;
+};
+
+var renderExplanation = function (r, o) {
+  var best = bestOption(r);
+  var html = "<span class=\"verdict " + o.rating + "\">" + VERDICT[o.rating] + "</span>" +
+    "<div class=\"exp-quote\"></div>" +
+    "<div class=\"exp-h\">Prečo</div><div class=\"exp-text\"></div>";
+  if (o.rating !== "safe") html += "<div class=\"exp-h\">Najlepšia odpoveď by bola</div><div class=\"exp-best\"></div>";
+  $("exp").innerHTML = html;
+  $("exp").querySelector(".exp-quote").textContent = "„" + o.text + "“";
+  $("exp").querySelector(".exp-text").textContent = o.exp;
+  if (o.rating !== "safe") $("exp").querySelector(".exp-best").textContent = "„" + best.text + "“";
+};
+
+var nextStep = function () {
+  var o = state.answers[state.round];
+  var isLast = state.round === ROUNDS.length - 1;
+  setBottom("<div class=\"waiting\">...</div>");
+  var go = function () {
+    if (isLast) later(finishGame, 700);
+    else later(function () { playRound(state.round + 1); }, 600);
+  };
+  if (o.reply) samkoSays(o.reply, go);
+  else go();
+};
+
+var finishGame = function () {
+  state.ended = true;
+  setBottom("<div class=\"waiting\">Konverzácia skončila</div>");
+  showResults();
+};
+
+var flagsSoFar = function () {
+  var list = [];
+  for (var i = 0; i <= state.round && i < ROUNDS.length; i++) list.push(ROUNDS[i].flag.short.toLowerCase());
+  return list;
+};
+
+var triggerPanic = function () {
+  if (!state.started || state.ended) return;
+  runId++;
+  state.panic = true;
+  state.ended = true;
+  state.panicStep = state.round + 1;
+  $("panic-big").classList.remove("pulse");
+  $("panic-mini").classList.remove("pulse");
+  setBottom("<div class=\"waiting\">🆘 Pomoc privolaná</div>");
+  addPill("critical", "🆘 <span>Viki privolala pomoc. Rodičia boli upozornení.</span>");
+
+  var flags = flagsSoFar();
+  $("panic-lead").textContent = state.panicStep <= 1
+    ? "Aj keď sa ešte nič vážne nestalo, požiadať o pomoc nie je nikdy chyba. Rodičia sa radšej pozrú zbytočne, ako by sa nepozreli vôbec."
+    : "Správne rozhodnutie. Netreba čakať, kým sa stane niečo zlé. Stačí, že ti niečo nie je príjemné.";
+  $("panic-text").textContent = "🚨 WATCHDOG: Viki stlačila núdzové tlačidlo v konverzácii s kontaktom „Samko Ferko“. " +
+    (flags.length ? "Zistené varovné signály: " + flags.join(", ") + ". " : "") +
+    "Úroveň nebezpečnosti: " + state.danger + "/100. Skontrolujte konverzáciu a kontaktujte ju ihneď.";
+  later(function () { $("panic").classList.add("show"); }, 300);
+};
+
+var showResults = function () {
+  $("panic").classList.remove("show");
+  var answered = state.answers.filter(Boolean);
+  var safe = answered.filter(function (a) { return a.rating === "safe"; }).length;
+  var bad = answered.filter(function (a) { return a.rating === "bad"; }).length;
+
+  var icon, kicker, title, lead;
+  if (state.panic) {
+    icon = "🦸"; kicker = "Najlepší možný koniec";
+    title = "Privolala si pomoc v kroku " + state.panicStep + " zo " + ROUNDS.length;
+    lead = "Presne na toto je núdzové tlačidlo. Útočník nedostal, čo chcel, a rodičia vedia o celej konverzácii.";
+  } else if (bad === 0 && safe >= 5) {
+    icon = "💪"; kicker = "Dobre si sa bránila";
+    title = "Útočníka si nepustila ďalej";
+    lead = "Skvelé odpovede! Ale v skutočnosti by Samko skúšal ďalej. Najlepšie je nečakať: pri prvom divnom pocite stlač 🆘 alebo to povedz dospelému.";
+  } else if (bad <= 2) {
+    icon = "⚠️"; kicker = "Bola si v ohrození";
+    title = "Útočník sa dozvedel viac, než mal";
+    lead = "Niektoré odpovede mu pomohli. Všimni si, ako postupne zbieral informácie, kým sa nepokúsil o stretnutie. Kedykoľvek si mohla stlačiť 🆘.";
+  } else {
+    icon = "🚨"; kicker = "Útočník dosiahol svoje";
+    title = "Bez Watchdogu by o tom nikto nevedel";
+    lead = "Samko získal informácie, tajomstvo aj súhlas. Presne takto to v skutočnosti prebieha: postupne a nenápadne.";
+  }
+  if (!state.panic && state.alerted) {
+    lead += " Watchdog našťastie upozornil rodičov automaticky už v kroku " + state.alertStep + ".";
+  }
+
+  $("res-icon").textContent = icon;
+  $("res-kicker").textContent = kicker;
+  $("res-title").textContent = title;
+  $("res-lead").textContent = lead;
+  $("res-safe").textContent = safe + "/" + answered.length;
+  $("res-danger").textContent = state.danger;
+  $("res-danger").className = "v " + dangerClass(state.danger);
+  $("res-sos").textContent = state.panic ? "✅" : "✗";
+  $("res-sos").style.color = state.panic ? "#4cd685" : "#ff7363";
+
+  $("res-recap").innerHTML = ROUNDS.map(function (r, i) {
+    var a = state.answers[i];
+    var key = a ? a.rating : "none";
+    var label = RECAP[key];
+    if (!a && state.panic && i === state.answers.length) label = "🆘 pomoc privolaná";
+    return "<li><span>" + r.flag.icon + "</span><span>" + r.flag.short + "</span><span class=\"r " + (label.indexOf("🆘") === 0 ? "safe" : key) + "\">" + label + "</span></li>";
+  }).join("");
+
+  later(function () { $("results").classList.add("show"); }, 0);
+};
+
+var showToast = function (text) {
+  var t = $("toast");
+  t.textContent = text;
+  t.classList.add("show");
+  setTimeout(function () { t.classList.remove("show"); }, 3800);
+};
+
+var resetUi = function () {
+  $("messages").innerHTML = "";
+  $("exp").innerHTML = "<p class=\"exp-empty\">Vyber odpoveď v telefóne. Watchdog ti tu vysvetlí, či bola bezpečná, a prečo.</p>";
+  $("flag-card").style.display = "none";
+  $("panic-big").classList.remove("pulse");
+  $("panic-mini").classList.remove("pulse");
+  ["panic", "results"].forEach(function (id) { $(id).classList.remove("show"); });
+  renderFlags();
+  renderDanger();
+  renderProgress();
+};
+
+var startGame = function () {
+  runId++;
+  resetState();
+  resetUi();
+  state.started = true;
+  $("intro").classList.remove("show");
+  addDate("Dnes 15:42");
+  later(function () { playRound(0); }, 500);
+};
+
+var restartGame = function () {
+  runId++;
+  resetState();
+  resetUi();
+  setBottom("<div class=\"waiting\">Stlač „Začať hru“</div>");
+  $("intro").classList.add("show");
+};
+
+resetState();
+resetUi();
+</script>
+</body>
+</html>
